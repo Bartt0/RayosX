@@ -3,96 +3,141 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Rayos X del Wi-Fi Público - Tu Dispositivo al Descubierto</title>
-    <link rel="stylesheet" href="styles.css">
+    <title>Rayos X del Wi-Fi - Portal del Participante</title>
+    <link rel="stylesheet" href="/portal_static/styles.css">
 </head>
 <body>
-    <div class="mobile-container">
-        <!-- Cabecera -->
-        <header class="header">
-            <div class="badge-node" id="nodeBadge">Conectando...</div>
-            <h1>Rayos X del Wi-Fi</h1>
-            <p class="subtitle">Lo que tu celular dice a tus espaldas</p>
+    <div class="terminal-container">
+        <!-- Cabecera Estilo Terminal Linux -->
+        <header class="terminal-header">
+            <div class="terminal-bar">
+                <span class="dot dot-red"></span>
+                <span class="dot dot-yellow"></span>
+                <span class="dot dot-green"></span>
+                <span class="terminal-title">participante@rayosx-wifi:~# auditoria-movil</span>
+            </div>
+            <div class="header-content">
+                <div class="badge-node" id="nodeBadge">CONECTANDO A LA RED WI-FI...</div>
+                <h1 class="main-title"><span class="prompt-symbol">&gt;</span> RAYOS X DEL WI-FI</h1>
+                <p class="subtitle">Auditoría en vivo: Descubre lo que tu celular transmite en silencio</p>
+            </div>
         </header>
 
-        <!-- Paso 1: Huella Digital -->
-        <section class="card" id="step1">
-            <h2>1. Tu Huella Digital en 3 Segundos</h2>
-            <p class="instruction">Esto acaba de revelar tu navegador al unirte a la red:</p>
-            <div class="fingerprint-grid" id="fingerprintData">
-                <div class="fp-item"><span>Sistema operativo:</span> <strong id="osVal">Detectando...</strong></div>
-                <div class="fp-item"><span>Navegador:</span> <strong id="browserVal">Detectando...</strong></div>
-                <div class="fp-item"><span>IP Local (Enmascarada):</span> <strong id="ipVal">...</strong></div>
-                <div class="fp-item"><span>Resolución / DPR:</span> <strong id="screenVal">...</strong></div>
-                <div class="fp-item"><span>GPU WebGL:</span> <strong id="gpuVal">...</strong></div>
+        <!-- Paso 1: Huella Digital del Dispositivo -->
+        <section class="term-card" id="step1">
+            <div class="term-card-header">
+                <span class="step-badge">[PASO 1]</span>
+                <h2>Tu Huella Digital Revelada en 3 Segundos</h2>
             </div>
-        </section>
-
-        <!-- Paso 2: Laboratorio MitM -->
-        <section class="card" id="step2">
-            <h2>2. Laboratorio Man-in-the-Middle</h2>
-            <p class="instruction">Simula el envío de una credencial o mensaje a través de la red:</p>
+            <p class="term-desc">Solo por conectarte al Wi-Fi y abrir esta página, tu teléfono ya expuso los siguientes datos:</p>
             
-            <div class="form-group">
-                <label for="aliasInput">Alias o Usuario de Prueba:</label>
-                <input type="text" id="aliasInput" value="visitante_vip" placeholder="Ej. usuario123">
-            </div>
-
-            <div class="form-group">
-                <label for="passInput">Contraseña o Dato Sensible:</label>
-                <input type="text" id="passInput" value="MiPasswordSeguro123!" placeholder="Contraseña ficticia">
-            </div>
-
-            <div class="button-row">
-                <button id="btnPlain" class="btn btn-danger">
-                    <span>🔴 Enviar sin Cifrar</span>
-                    <small>HTTP (Texto Plano)</small>
-                </button>
-                <button id="btnEncrypted" class="btn btn-success">
-                    <span>🟢 Enviar Blindado</span>
-                    <small>TLS 1.3 + AES-256</small>
-                </button>
-            </div>
-
-            <div id="mitmResult" class="mitm-result hidden">
-                <h3 id="resultTitle">Resultado de la Transmisión</h3>
-                <div id="resultContent" class="result-box"></div>
+            <div class="console-box" id="fingerprintData">
+                <div class="console-line"><span class="k">Tu Dirección IP Local:</span> <span class="v" id="ipVal">Detectando...</span></div>
+                <div class="console-line"><span class="k">Sistema Operativo:</span> <span class="v" id="osVal">Detectando...</span></div>
+                <div class="console-line"><span class="k">Navegador Web:</span> <span class="v" id="browserVal">Detectando...</span></div>
+                <div class="console-line"><span class="k">Resolución de Pantalla:</span> <span class="v" id="screenVal">...</span></div>
+                <div class="console-line"><span class="k">Procesador del Teléfono:</span> <span class="v" id="cpuVal">...</span></div>
+                <div class="console-line"><span class="k">Chip Gráfico (GPU):</span> <span class="v" id="gpuVal">...</span></div>
             </div>
         </section>
 
-        <!-- Paso 3: Recomendaciones -->
-        <section class="card" id="step3">
-            <h2>3. Escudo Protector</h2>
-            <ul class="recommendations-list">
-                <li>
-                    <span class="icon">🔒</span>
-                    <div>
-                        <strong>Exige HTTPS siempre</strong>
-                        <p>Nunca navegues en sitios que usen HTTP plano para ingresar credenciales.</p>
-                    </div>
-                </li>
-                <li>
-                    <span class="icon">🛡️</span>
-                    <div>
-                        <strong>Usa DNS Privado (DoH/DoT)</strong>
-                        <p>Evita que tus consultas de dominios sean leídas o interceptadas en redes públicas.</p>
-                    </div>
-                </li>
-                <li>
-                    <span class="icon">📡</span>
-                    <div>
-                        <strong>Prefiere tus Datos Móviles o VPN</strong>
-                        <p>En cafeterías, aeropuertos y congresos, el Wi-Fi abierto es una zona de alto riesgo.</p>
-                    </div>
-                </li>
-            </ul>
+        <!-- Paso 2: Laboratorio de Ataques (MitM) -->
+        <section class="term-card" id="step2">
+            <div class="term-card-header">
+                <span class="step-badge">[PASO 2]</span>
+                <h2>Laboratorio de Ataques en Vivo (Prueba de Envío)</h2>
+            </div>
+            <p class="term-desc">Comprueba qué pasa cuando envías una contraseña a través de una red pública:</p>
+            
+            <!-- Botones de relleno rápido -->
+            <div class="quick-fill-bar">
+                <span class="quick-fill-label">Autocompletar prueba rápida:</span>
+                <button type="button" class="btn-chip" id="btnFillAlice">Usuario Juan</button>
+                <button type="button" class="btn-chip" id="btnFillBob">Admin Sofia</button>
+                <button type="button" class="btn-chip" id="btnFillCard">Clave Banco</button>
+            </div>
+
+            <div class="form-row">
+                <label for="aliasInput">TU NOMBRE O ALIAS DE PRUEBA:</label>
+                <div class="input-wrap">
+                    <span class="prefix">usuario:</span>
+                    <input type="text" id="aliasInput" value="participante_01" placeholder="Ej. juan_perez" spellcheck="false" autocomplete="off">
+                </div>
+            </div>
+
+            <div class="form-row">
+                <label for="passInput">CONTRASEÑA FICTICIA DE PRUEBA:</label>
+                <div class="input-wrap">
+                    <span class="prefix">clave:</span>
+                    <input type="text" id="passInput" value="MiClaveSecreta2026!" placeholder="Contraseña de prueba" spellcheck="false" autocomplete="off">
+                </div>
+            </div>
+
+            <!-- Botones de Acción Grande -->
+            <div class="buttons-grid">
+                <button id="btnPlain" class="btn-terminal btn-plain">
+                    <span class="btn-tag">🔴 BOTÓN ROJO (PELIGROSO)</span>
+                    <strong>1. ENVIAR SIN CIFRAR (TEXTO PLANO)</strong>
+                    <small>Simula el protocolo HTTP. Tu contraseña aparecerá al descubierto en la pantalla del auditorio.</small>
+                </button>
+                
+                <button id="btnEncrypted" class="btn-terminal btn-encrypted">
+                    <span class="btn-tag">🟢 BOTÓN VERDE (SEGURO)</span>
+                    <strong>2. ENVIAR BLINDADO CON CIFRADO</strong>
+                    <small>Cifra tus datos con TLS 1.3 y AES-256. Tu alias aparecerá en el Muro de Personas Protegidas.</small>
+                </button>
+            </div>
+
+            <!-- Resultado de la Transmisión -->
+            <div id="mitmResult" class="mitm-console hidden">
+                <div class="mitm-console-top" id="resultHeader">
+                    <span class="status-indicator"></span>
+                    <span id="resultTitle">RESULTADO DE LA INTERCEPCIÓN</span>
+                </div>
+                <pre id="resultContent" class="console-output"></pre>
+            </div>
         </section>
 
-        <footer class="footer">
-            <p>Laboratorio de Ciberseguridad en Vivo</p>
+        <!-- Paso 3: Recomendaciones de Seguridad -->
+        <section class="term-card" id="step3">
+            <div class="term-card-header">
+                <span class="step-badge">[PASO 3]</span>
+                <h2>3 Consejos para Protegerte en Cualquier Wi-Fi</h2>
+            </div>
+            <p class="term-desc">Buenas prácticas que debes aplicar siempre en cafeterías, aeropuertos y hoteles:</p>
+
+            <div class="defense-list">
+                <div class="defense-item">
+                    <div class="defense-num">01</div>
+                    <div class="defense-body">
+                        <strong>EXIGE SIEMPRE EL CANDADO (HTTPS)</strong>
+                        <p>Nunca ingreses claves ni números de tarjeta en sitios que no tengan el candado de seguridad en la barra de direcciones.</p>
+                    </div>
+                </div>
+
+                <div class="defense-item">
+                    <div class="defense-num">02</div>
+                    <div class="defense-body">
+                        <strong>ACTIVA DNS PRIVADO EN TU TELÉFONO</strong>
+                        <p>En los ajustes de red de tu celular, busca "DNS Privado" y escribe <code>dns.google</code> o <code>one.one.one.one</code> para evitar que la red espíe qué páginas visitas.</p>
+                    </div>
+                </div>
+
+                <div class="defense-item">
+                    <div class="defense-num">03</div>
+                    <div class="defense-body">
+                        <strong>USA TUS DATOS MÓVILES O UNA VPN</strong>
+                        <p>Para operaciones del banco o compras importantes, apaga el Wi-Fi abierto y usa la red móvil de tu compañía o enciende una VPN confiable.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <footer class="terminal-footer">
+            <p class="footer-prompt">auditor@rayosx:~# echo "Laboratorio Educativo de Ciberseguridad" <span class="cursor">▋</span></p>
         </footer>
     </div>
 
-    <script src="app.js"></script>
+    <script src="/portal_static/app.js"></script>
 </body>
 </html>

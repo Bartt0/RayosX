@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rayos X del Wi-Fi Público - Centro de Monitoreo SOC</title>
+    <link rel="stylesheet" href="/dashboard_static/styles.css">
+</head>
+<body class="soc-body">
+    <!-- Overlay de Alerta Roja en Pantalla Completa (Disparo en Intercepción) -->
+    <div id="fullScreenAlert" class="fullscreen-alert hidden">
+        <div class="alert-content">
+            <div class="alert-siren">⚠️ ALERTA DE SEGURIDAD CRÍTICA ⚠️</div>
+            <h1 class="alert-title">¡CREDENCIALES INTERCEPTADAS EN TEXTO PLANO!</h1>
+            <div class="alert-data">
+                <span id="alertNode" class="alert-node">DISPOSITIVO: #01</span>
+                <span id="alertAlias" class="alert-alias">USUARIO: victima_wifi</span>
+            </div>
+            <pre id="alertPayload" class="alert-payload">POST /api/login HTTP/1.1</pre>
+            <p class="alert-footer">CUALQUIER PERSONA EN LA MISMA RED WI-FI PUDO COPIAR ESTOS DATOS SIN ESFUERZO</p>
+        </div>
+    </div>
+
+    <!-- Modal de Código QR Gigante para el Auditorio -->
+    <div id="qrModal" class="modal-overlay hidden">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3>[ESCÁNER PARA EL AUDITORIO] PARTICIPA EN LA AUDITORÍA</h3>
+                <button id="btnCloseModal" class="btn-close">&times; CERRAR [ESC]</button>
+            </div>
+            <div class="modal-body">
+                <div id="modalQrContainer" class="qr-big-box"></div>
+                <div class="modal-info">
+                    <p class="qr-step"><strong>1. Conéctate al Wi-Fi de la sala.</strong></p>
+                    <p class="qr-step"><strong>2. Escanea este código QR con tu celular.</strong></p>
+                    <p class="qr-step"><strong>3. O ingresa directamente desde el navegador de tu teléfono a:</strong></p>
+                    <div class="qr-url-box" id="modalUrlDisplay">http://192.168.1.105:8000/reto</div>
+                    
+                    <div class="ip-picker-row">
+                        <label for="modalIpSelect">Cambiar dirección de red (si usas otra tarjeta):</label>
+                        <select id="modalIpSelect" class="select-linux"></select>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Contenedor Principal Dashboard SOC -->
+    <div class="soc-container">
+        <!-- Barra Superior de Control SOC -->
+        <header class="soc-topbar">
+            <div class="soc-brand">
+                <span class="prompt-user">soc@auditoria</span>:<span class="prompt-path">~/wifi-monitor</span><span class="prompt-sym">$</span>
+                <h1 class="brand-title">RAYOS X DEL WI-FI PÚBLICO</h1>
+                <span class="status-pill status-live" id="wsStatus">● EN VIVO</span>
+            </div>
+
+            <!-- Métricas en Vivo -->
+            <div class="soc-metrics">
+                <div class="metric-card metric-visitors">
+                    <span class="metric-label">DISPOSITIVOS</span>
+                    <strong class="metric-value" id="metricVisitors">00</strong>
+                </div>
+                <div class="metric-card metric-plain">
+                    <span class="metric-label">EN TEXTO PLANO (PELIGRO)</span>
+                    <strong class="metric-value" id="metricPlain">00</strong>
+                </div>
+                <div class="metric-card metric-encrypted">
+                    <span class="metric-label">BLINDADOS CON CIFRADO</span>
+                    <strong class="metric-value" id="metricEncrypted">00</strong>
+                </div>
+            </div>
+
+            <!-- Botón Grande de QR para la Sala -->
+            <div class="soc-qr-action">
+                <button id="btnZoomQr" class="btn-open-qr">
+                    <span class="qr-icon">📱</span>
+                    <div class="qr-text-col">
+                        <strong>ABRIR QR GIGANTE</strong>
+                        <small id="topIpLabel">http://192.168.1.105:8000/reto</small>
+                    </div>
+                </button>
+            </div>
+
+            <!-- Controles del Expositor -->
+            <div class="soc-controls">
+                <button id="btnDemoVisitor" class="btn-ctrl" title="Agregar visitante simulado">+ Simular Dispositivo [S]</button>
+                <button id="btnDemoMitm" class="btn-ctrl" title="Simular ataque de intercepción">⚡ Simular Ataque</button>
+                <button id="btnToggleHallway" class="btn-ctrl" title="Activar o pausar telemetría de fondo">Pasillo: ACTIVO [P]</button>
+                <button id="btnToggleAudio" class="btn-ctrl" title="Silenciar o activar sonidos">Sonido: ACTIVO [M]</button>
+                <button id="btnFullscreen" class="btn-ctrl" title="Modo pantalla completa">Pantalla Completa [F]</button>
+                <button id="btnResetRoom" class="btn-ctrl btn-ctrl-danger" title="Limpiar todas las estadísticas">Reiniciar Sala [R]</button>
+                <div class="clock-display" id="clockDisplay">00:00:00</div>
+            </div>
+        </header>
+
+        <!-- Banner de Instrucción Rápida para el Auditorio -->
+        <div class="instruction-banner">
+            <span class="banner-badge">PARTICIPA EN VIVO:</span>
+            <span>Conéctate al Wi-Fi del lugar y abre en tu celular:</span>
+            <strong class="banner-url" id="bannerUrlText">http://192.168.1.105:8000/reto</strong>
+            <span>o pulsa el botón <strong>"ABRIR QR GIGANTE"</strong> arriba para proyectarlo.</span>
+        </div>
+
+        <!-- Contenido Central: 3 Columnas Educativas -->
+        <main class="soc-main-grid">
+            <!-- Columna 1: Radar y Dispositivos Identificados -->
+            <section class="soc-column col-radar">
+                <div class="column-header">
+                    <span class="col-icon">📡</span>
+                    <h2>PANEL 1 // RADAR Y DISPOSITIVOS EN LA SALA</h2>
+                    <span class="counter-badge" id="nodesCountBadge">0 ACTIVOS</span>
+                </div>
+
+                <div class="radar-container">
+                    <div class="radar-scope" id="radarScope">
+                        <div class="radar-sweep"></div>
+                        <div class="radar-ring ring-1"></div>
+                        <div class="radar-ring ring-2"></div>
+                        <div class="radar-ring ring-3"></div>
+                        <div class="radar-axis axis-h"></div>
+                        <div class="radar-axis axis-v"></div>
+                        <div id="radarBlips"></div>
+                    </div>
+                </div>
+
+                <div class="device-list-container">
+                    <div class="sub-header">
+                        <span>CELULARES Y COMPUTADORAS DETECTADAS</span>
+                        <span class="term-dim">registro_dispositivos.log</span>
+                    </div>
+                    <div class="device-scroll-list" id="devicesList">
+                        <div class="empty-state">
+                            <span class="cursor-blink">&gt;</span> Esperando dispositivos... Escanea el código QR desde tu celular para aparecer aquí como el <strong>Nodo #01</strong>.
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Columna 2: Inspector DNS y Telemetría en Cascada -->
+            <section class="soc-column col-telemetry">
+                <div class="column-header">
+                    <span class="col-icon">🧬</span>
+                    <h2>PANEL 2 // LO QUE LAS APPS TRANSMITEN EN SILENCIO</h2>
+                    <span class="live-tag" id="telemetryStateBadge">RASTREO EN VIVO</span>
+                </div>
+
+                <div class="telemetry-console-wrapper">
+                    <div class="terminal-bar-mini">
+                        <span class="term-file">Registro continuo de consultas DNS y peticiones de fondo</span>
+                        <span class="term-speed" id="streamSpeed">Actualizando en tiempo real</span>
+                    </div>
+                    <div class="telemetry-stream" id="telemetryStream">
+                        <!-- Líneas de telemetría inyectadas dinámicamente -->
+                    </div>
+                </div>
+
+                <div class="telemetry-legend">
+                    <span class="legend-item"><span class="badge-cat cat-social">[RED SOCIAL]</span> Redes Sociales</span>
+                    <span class="legend-item"><span class="badge-cat cat-tracker">[RASTREADOR]</span> Publicidad y Rastreos</span>
+                    <span class="legend-item"><span class="badge-cat cat-os">[SISTEMA]</span> Apple / Google / Fabricante</span>
+                    <span class="legend-item"><span class="badge-cat cat-msg">[MENSAJES]</span> WhatsApp / Mensajería</span>
+                </div>
+            </section>
+
+            <!-- Columna 3: Laboratorio Man-in-the-Middle y Muro Blindado -->
+            <section class="soc-column col-mitm">
+                <div class="column-header">
+                    <span class="col-icon">⚡</span>
+                    <h2>PANEL 3 // LABORATORIO DE ATAQUES (TEXTO PLANO VS CIFRADO)</h2>
+                    <span class="counter-badge" id="mitmTotalBadge">0 PRUEBAS</span>
+                </div>
+
+                <!-- Tarjeta de Intercepción Activa -->
+                <div class="mitm-live-inspector" id="mitmLiveInspector">
+                    <div class="inspector-empty" id="inspectorEmpty">
+                        <div class="empty-radar-icon">⚡</div>
+                        <h3>ESPERANDO PRUEBA DE UN VISITANTE</h3>
+                        <p>Abre <strong>/reto</strong> en tu celular y pulsa el <strong>Botón Rojo (Texto Plano)</strong> o el <strong>Botón Verde (Cifrado Blindado)</strong>.</p>
+                    </div>
+
+                    <div class="inspector-card hidden" id="inspectorCard">
+                        <div class="inspector-badge-row">
+                            <span class="inspector-status" id="inspectStatus">INTERCEPTADO</span>
+                            <span class="inspector-node" id="inspectNode">#01</span>
+                            <span class="inspector-time" id="inspectTime">00:00:00</span>
+                        </div>
+                        <div class="inspector-alias-row">
+                            <span class="lbl">USUARIO O ALIAS:</span>
+                            <strong id="inspectAlias">visitante</strong>
+                        </div>
+                        <div class="inspector-payload-box" id="inspectPayloadBox">
+                            <pre id="inspectPayloadContent"></pre>
+                        </div>
+                        <div class="inspector-crypto-row" id="inspectCryptoRow">
+                            <div class="crypto-meta">
+                                <span class="lbl">HASH DE INTEGRIDAD (SHA-256):</span>
+                                <code id="inspectSha">Ninguno</code>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Muro de Usuarios Protegidos -->
+                <div class="protected-wall-container">
+                    <div class="sub-header">
+                        <span class="green-text">🛡️ MURO DE USUARIOS PROTEGIDOS</span>
+                        <span class="term-dim">cifrado_tls1.3_aes256_verificado</span>
+                    </div>
+                    <div class="wall-list" id="protectedWallList">
+                        <div class="empty-state">
+                            Aún nadie ha blindado su conexión. Pulsa el botón verde en tu celular para ingresar a esta lista de honor.
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Barra Inferior de Atajos -->
+        <footer class="soc-footer">
+            <div class="shortcut-pills">
+                <span class="pill"><strong>[ESPACIO]</strong> Simular</span>
+                <span class="pill"><strong>[Q]</strong> Ver QR Grande</span>
+                <span class="pill"><strong>[S]</strong> Probar Ataque</span>
+                <span class="pill"><strong>[P]</strong> Pasillo</span>
+                <span class="pill"><strong>[M]</strong> Silenciar</span>
+                <span class="pill"><strong>[F]</strong> Pantalla Completa</span>
+                <span class="pill"><strong>[R]</strong> Reiniciar</span>
+            </div>
+            <div class="footer-notice">
+                <span>LABORATORIO DE CIBERSEGURIDAD EN VIVO // AUDITORÍA ÉTICA</span>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Scripts 100% Locales y Autónomos -->
+    <script src="/dashboard_static/qrcode.min.js"></script>
+    <script src="/dashboard_static/audio.js"></script>
+    <script src="/dashboard_static/app.js"></script>
+</body>
+</html>

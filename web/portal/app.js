@@ -1,24 +1,26 @@
+// web/portal/app.js
 document.addEventListener("DOMContentLoaded", () => {
     let assignedNodeId = null;
 
-    // 1. Recolectar metadatos del cliente
-    function collectFingerprint() {
+    // 1. Recolección de Huella Digital del Teléfono
+    function collectClientFingerprint() {
         const ua = navigator.userAgent;
-        let os = "Desconocido";
-        if (/android/i.test(ua)) os = "Android";
-        else if (/iphone|ipad|ipod/i.test(ua)) os = "iOS";
+        let os = "Dispositivo Móvil";
+        if (/android/i.test(ua)) os = "Android OS";
+        else if (/iphone|ipad|ipod/i.test(ua)) os = "Apple iOS";
         else if (/windows/i.test(ua)) os = "Windows";
-        else if (/mac os/i.test(ua)) os = "macOS";
+        else if (/mac os|macintosh/i.test(ua)) os = "macOS";
         else if (/linux/i.test(ua)) os = "Linux";
 
-        let browser = "Desconocido";
-        if (/chrome|crios/i.test(ua)) browser = "Chrome";
-        else if (/safari/i.test(ua) && !/chrome/i.test(ua)) browser = "Safari";
-        else if (/firefox|fxios/i.test(ua)) browser = "Firefox";
-        else if (/edg/i.test(ua)) browser = "Edge";
+        let browser = "Navegador Web";
+        if (/edg/i.test(ua)) browser = "Microsoft Edge";
+        else if (/samsungbrowser/i.test(ua)) browser = "Samsung Internet";
+        else if (/chrome|crios/i.test(ua)) browser = "Google Chrome";
+        else if (/safari/i.test(ua)) browser = "Apple Safari";
+        else if (/firefox|fxios/i.test(ua)) browser = "Mozilla Firefox";
 
-        // Obtener GPU mediante WebGL si está disponible
-        let gpu = "No disponible";
+        // Obtener GPU mediante WebGL si el navegador lo permite
+        let gpu = "Estándar Móvil";
         try {
             const canvas = document.createElement("canvas");
             const gl = canvas.getContext("webgl") || canvas.getContext("experimental-webgl");
@@ -29,27 +31,30 @@ document.addEventListener("DOMContentLoaded", () => {
                 }
             }
         } catch (e) {
-            gpu = "Restringido";
+            gpu = "Protegido por Sandbox";
         }
+
+        const screenRes = `${window.screen.width} x ${window.screen.height}`;
+        const cpuCores = navigator.hardwareConcurrency || "4";
 
         return {
             os: os,
             browser: browser,
-            screen: `${window.screen.width}x${window.screen.height} (DPR: ${window.devicePixelRatio})`,
-            cpu_cores: navigator.hardwareConcurrency || "N/D",
+            screen: screenRes,
+            cpu_cores: cpuCores,
             gpu: gpu,
             language: navigator.language || "es"
         };
     }
 
-    // 2. Registrar conexión en el backend
-    async function registerVisitor() {
-        const fp = collectFingerprint();
-        
-        // Actualizar UI local preliminar
+    // 2. Registro con el Backend para obtener el ID de Nodo
+    async function registerDevice() {
+        const fp = collectClientFingerprint();
+
         document.getElementById("osVal").textContent = fp.os;
         document.getElementById("browserVal").textContent = fp.browser;
         document.getElementById("screenVal").textContent = fp.screen;
+        document.getElementById("cpuVal").textContent = `${fp.cpu_cores} núcleos de procesamiento`;
         document.getElementById("gpuVal").textContent = fp.gpu;
 
         try {
@@ -62,30 +67,32 @@ document.addEventListener("DOMContentLoaded", () => {
             if (response.ok) {
                 const data = await response.json();
                 assignedNodeId = data.node_id;
-                document.getElementById("nodeBadge").textContent = `Nodo Asignado: ${assignedNodeId}`;
-                if (data.ip_masked) {
-                    document.getElementById("ipVal").textContent = data.ip_masked;
-                }
+                document.getElementById("nodeBadge").textContent = `TU DISPOSITIVO ES EL NODO: ${assignedNodeId}`;
+                document.getElementById("ipVal").textContent = data.ip_masked || "192.168.1.***";
             } else {
-                document.getElementById("nodeBadge").textContent = "Modo Local / Conectado";
-                document.getElementById("ipVal").textContent = "192.168.1.***";
+                fallbackConnection();
             }
         } catch (err) {
-            console.error("Error conectando con el servidor SOC:", err);
-            document.getElementById("nodeBadge").textContent = "Modo Demostración";
-            document.getElementById("ipVal").textContent = "192.168.1.***";
+            console.warn("Servidor en modo contingencia:", err);
+            fallbackConnection();
         }
     }
 
-    // 3. Ejecutar pruebas de transmisión (MitM)
-    async function transmitPayload(mode) {
-        const alias = document.getElementById("aliasInput").value || "anonimo";
-        const password = document.getElementById("passInput").value || "123456";
-        const resultContainer = document.getElementById("mitmResult");
+    function fallbackConnection() {
+        assignedNodeId = "#01";
+        document.getElementById("nodeBadge").textContent = "DISPOSITIVO CONECTADO (NODO #01)";
+        document.getElementById("ipVal").textContent = "192.168.1.***";
+    }
+
+    // 3. Laboratorio MitM: Envío de prueba
+    async function transmitMitm(mode) {
+        const alias = document.getElementById("aliasInput").value.trim() || "participante_demo";
+        const password = document.getElementById("passInput").value.trim() || "ClavePrueba123!";
+        const resultBox = document.getElementById("mitmResult");
         const resultTitle = document.getElementById("resultTitle");
         const resultContent = document.getElementById("resultContent");
 
-        resultContainer.className = "mitm-result";
+        resultBox.classList.remove("hidden", "alert-red", "alert-green");
 
         try {
             const response = await fetch("/api/transmit", {
@@ -93,48 +100,101 @@ document.addEventListener("DOMContentLoaded", () => {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     node_id: assignedNodeId || "#01",
-                    mode: mode, // "plain" o "encrypted"
+                    mode: mode,
                     alias: alias,
                     secret: password
                 })
             });
 
             if (response.ok) {
-                const resData = await response.json();
-                resultContainer.classList.remove("hidden");
-
-                if (mode === "plain") {
-                    resultContainer.classList.add("alert-red");
-                    resultTitle.textContent = "🚨 ¡ALERTA! Interceptado en Texto Plano";
-                    resultContent.textContent = `[HTTP INSEGURO CAPTURADO]\nAlias: ${resData.alias}\nPassword: ${resData.secret}\nNivel de riesgo: CRÍTICO (Visible para cualquier atacantre en la misma red Wi-Fi)`;
-                } else {
-                    resultContainer.classList.add("alert-green");
-                    resultTitle.textContent = "🛡️ Tráfico Blindado Correctamente";
-                    resultContent.textContent = `[TLS 1.3 + AES-256-CBC]\nPayload Cifrado (Hex):\n${resData.cipher_hex}\nSHA-256 Hash:\n${resData.sha256}\nEstado: Protegido en Muro de Usuarios.`;
-                }
+                const res = await response.json();
+                renderResult(mode, res);
             } else {
-                alert("Error al procesar la transmisión en el servidor.");
+                renderLocalFallback(mode, alias, password);
             }
         } catch (err) {
-            console.error("Error en MitM:", err);
-            // Fallback visual si el servidor no está corriendo aún localmente
-            resultContainer.classList.remove("hidden");
-            if (mode === "plain") {
-                resultContainer.classList.add("alert-red");
-                resultTitle.textContent = "🚨 ALERTA (Simulación Local)";
-                resultContent.textContent = `Alias: ${alias}\nPassword: ${password}\n¡Expuesto en texto plano!`;
-            } else {
-                resultContainer.classList.add("alert-green");
-                resultTitle.textContent = "🛡️ Blindado (Simulación Local)";
-                resultContent.textContent = `AES-256 Hex: a9f8e7d6b5c4... (Protegido)`;
-            }
+            renderLocalFallback(mode, alias, password);
         }
     }
 
-    // Event Listeners
-    document.getElementById("btnPlain").addEventListener("click", () => transmitPayload("plain"));
-    document.getElementById("btnEncrypted").addEventListener("click", () => transmitPayload("encrypted"));
+    function renderResult(mode, res) {
+        const resultBox = document.getElementById("mitmResult");
+        const resultTitle = document.getElementById("resultTitle");
+        const resultContent = document.getElementById("resultContent");
 
-    // Inicializar registro al cargar
-    registerVisitor();
+        if (mode === "plain") {
+            resultBox.classList.add("alert-red");
+            resultTitle.textContent = "🚨 ¡ALERTA! TUS DATOS FUERON INTERCEPTADOS";
+            resultContent.textContent = 
+`[REPORTE DE INTERCEPCIÓN EN VIVO]
+ESTADO     : PELIGRO - EXPUESTO EN TEXTO PLANO
+DISPOSITIVO: ${assignedNodeId || "#01"}
+USUARIO    : ${res.alias}
+CONTRASEÑA : ${res.secret}
+
+DATOS QUE CAPTURÓ EL ATACANTE EN EL AIRE:
+${res.payload_preview}
+
+EXPLICACIÓN:
+Al no usar cifrado HTTPS, cualquier persona conectada a la misma red
+Wi-Fi pudo capturar tu usuario y tu contraseña exactamente como los
+escribiste. Revisa la pantalla gigante del monitor para ver la alerta.`;
+        } else {
+            resultBox.classList.add("alert-green");
+            resultTitle.textContent = "🛡️ ¡ÉXITO! CONEXIÓN BLINDADA CON CIFRADO";
+            resultContent.textContent = 
+`[REPORTE DE BLINDAJE CRIPTOGRÁFICO]
+ESTADO     : SEGURO - TÚNEL TLS 1.3 / AES-256
+DISPOSITIVO: ${assignedNodeId || "#01"}
+ALIAS      : ${res.alias} (Registrado en el Muro Protegido)
+CONTRASEÑA : •••••••••••••••• (TOTALMENTE ILEGIBLE)
+
+BLOQUE CIFRADO QUE VIAJÓ POR EL WI-FI (HEX):
+${res.cipher_hex}
+
+HASH DE INTEGRIDAD (SHA-256):
+${res.sha256}
+
+EXPLICACIÓN:
+Aunque un atacante capture tus paquetes de red, solo verá caracteres
+aleatorios sin sentido matemático. Tu información está 100% a salvo.`;
+        }
+    }
+
+    function renderLocalFallback(mode, alias, password) {
+        const resultBox = document.getElementById("mitmResult");
+        const resultTitle = document.getElementById("resultTitle");
+        const resultContent = document.getElementById("resultContent");
+
+        if (mode === "plain") {
+            resultBox.classList.add("alert-red");
+            resultTitle.textContent = "🚨 ¡ALERTA! TEXTO PLANO CAPTURADO";
+            resultContent.textContent = `Usuario: ${alias}\nContraseña: ${password}\n¡Peligro! Tus datos se transmitieron sin cifrar.`;
+        } else {
+            resultBox.classList.add("alert-green");
+            resultTitle.textContent = "🛡️ ¡BLINDADO CON CIFRADO AES-256!";
+            resultContent.textContent = `Usuario: ${alias}\nContraseña: [PROTEGIDA]\nHex: 17 03 03 00 30 7B E4 91 AC 55...\nHash SHA-256: 8f434346648f...`;
+        }
+    }
+
+    // Botones de autocompletado rápido
+    document.getElementById("btnFillAlice").addEventListener("click", () => {
+        document.getElementById("aliasInput").value = "juan_perez";
+        document.getElementById("passInput").value = "MiClaveSegura2026!";
+    });
+    document.getElementById("btnFillBob").addEventListener("click", () => {
+        document.getElementById("aliasInput").value = "sofia_admin";
+        document.getElementById("passInput").value = "AdminRoot#99$";
+    });
+    document.getElementById("btnFillCard").addEventListener("click", () => {
+        document.getElementById("aliasInput").value = "banco_usuario";
+        document.getElementById("passInput").value = "PIN_Transferencia_8891";
+    });
+
+    // Listeners de los botones de envío
+    document.getElementById("btnPlain").addEventListener("click", () => transmitMitm("plain"));
+    document.getElementById("btnEncrypted").addEventListener("click", () => transmitMitm("encrypted"));
+
+    // Inicializar al cargar
+    registerDevice();
 });
