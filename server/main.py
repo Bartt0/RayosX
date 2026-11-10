@@ -1,6 +1,8 @@
 # server/main.py
 import os
+import re
 import socket
+import subprocess
 import asyncio
 import random
 from typing import Dict, Any, List
@@ -17,53 +19,73 @@ from server.crypto_lab import process_mitm_payload
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-def get_best_local_ip() -> str:
-    """
-    Detecta de forma inteligente la IP local real (Wi-Fi o Ethernet activa con salida),
-    descartando adaptadores virtuales de VMware, VirtualBox, Docker y WSL.
-    """
-    # 1. Resolver mediante socket UDP con ruta de salida predeterminada
+def _discover_interface_ips() -> List[str]:
+    """Descubre todas las IPs IPv4 activas del sistema (incluyendo entornos offline sin gateway)."""
+    found: List[str] = []
+    ignored_prefixes = ("127.", "169.254.", "192.168.56.", "192.168.88.", "192.168.232.", "172.17.", "172.18.")
+
+    # 1. Probar rutas UDP (con y sin salida a internet, incluyendo rangos LAN y hotspot)
+    for target in ("8.8.8.8", "192.168.1.1", "192.168.0.1", "10.0.0.1", "172.20.10.1"):
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.settimeout(0.2)
+            s.connect((target, 80))
+            ip = s.getsockname()[0]
+            s.close()
+            if ip and not ip.startswith(ignored_prefixes) and ip not in found:
+                found.append(ip)
+        except Exception:
+            pass
+
+    # 2. En Linux/Unix consultar `ip -4 -o addr show` priorizando interfaces Wi-Fi (wl*, wlan*)
     try:
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.settimeout(0.8)
-        s.connect(("8.8.8.8", 80))
-        routed_ip = s.getsockname()[0]
-        s.close()
-        # Verificar que no sea loopback ni adaptador virtual común
-        if routed_ip and not routed_ip.startswith(("127.", "192.168.56.", "192.168.88.", "192.168.232.", "172.17.")):
-            return routed_ip
+        out = subprocess.check_output(["ip", "-4", "-o", "addr", "show"], text=True, timeout=1.0)
+        wifi_ips = []
+        other_ips = []
+        for line in out.splitlines():
+            parts = line.split()
+            if len(parts) >= 4:
+                iface = parts[1]
+                if iface.startswith(("lo", "docker", "br-", "veth", "virbr", "vmnet", "vboxnet")):
+                    continue
+                m = re.search(r"inet\s+(\d+\.\d+\.\d+\.\d+)", line)
+                if m:
+                    ip = m.group(1)
+                    if not ip.startswith(ignored_prefixes):
+                        if iface.startswith(("wl", "wlan", "wifi", "ath")):
+                            wifi_ips.append(ip)
+                        else:
+                            other_ips.append(ip)
+        for ip in wifi_ips + other_ips:
+            if ip not in found:
+                found.append(ip)
     except Exception:
         pass
 
-    # 2. Enumerar IPs del hostname descartando adaptadores virtuales conocidos
+    # 3. Fallback con hostname
     try:
         hostname = socket.gethostname()
         _, _, host_ips = socket.gethostbyname_ex(hostname)
-        # Priorizar redes Wi-Fi / LAN típicas
         for ip in host_ips:
-            if ip.startswith(("192.168.1.", "192.168.0.", "10.0.", "10.1.")):
-                return ip
-        for ip in host_ips:
-            if not ip.startswith(("127.", "192.168.56.", "192.168.88.", "192.168.232.", "172.17.")):
-                return ip
+            if not ip.startswith(ignored_prefixes) and ip not in found:
+                found.append(ip)
     except Exception:
         pass
 
-    return "127.0.0.1"
+    return found
+
+def get_best_local_ip() -> str:
+    """
+    Detecta de forma inteligente la IP local real (Wi-Fi o Ethernet activa),
+    descartando adaptadores virtuales de VMware, VirtualBox, Docker y WSL.
+    """
+    ips = _discover_interface_ips()
+    return ips[0] if ips else "127.0.0.1"
 
 def get_all_available_ips() -> List[str]:
     """Lista las IPs útiles ordenando primero la IP Wi-Fi primaria."""
-    primary = get_best_local_ip()
-    ips = [primary]
-    try:
-        hostname = socket.gethostname()
-        _, _, host_ips = socket.gethostbyname_ex(hostname)
-        for ip in host_ips:
-            if ip not in ips and not ip.startswith("127."):
-                ips.append(ip)
-    except Exception:
-        pass
-    return ips
+    ips = _discover_interface_ips()
+    return ips if ips else ["127.0.0.1"]
 
 # Bucle asíncrono para telemetría continua en pantalla
 async def telemetry_background_worker():
